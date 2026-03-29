@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String    @id @default(cuid())
+  name      String
+  currency  String    @default("USD")
+  users     User[]
+  expenses  Expense[]
+  rules     Rule[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role          Role      @default(EMPLOYEE)
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+  managerId     String?
+  manager       User?     @relation("UserManager", fields: [managerId], references: [id])
+  subordinates  User[]    @relation("UserManager")
+  expenses      Expense[]
+  approvals     Approval[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  amount      Float
+  currency    String
+  category    String
+  description String?
+  date        DateTime @default(now())
+  status      Status   @default(PENDING)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  approvals   Approval[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum Status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Approval {
+  id         String   @id @default(cuid())
+  expenseId  String
+  expense    Expense  @relation(fields: [expenseId], references: [id])
+  approverId String
+  approver   User     @relation(fields: [approverId], references: [id])
+  status     Status   @default(PENDING)
+  comments   String?
+  sequence   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  type        RuleType @default(SEQUENTIAL)
+  threshold   Float?
+  logic       Json?    // For complex rules like { "threshold": 0.6, "override": "CFO" }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum RuleType {
+  SEQUENTIAL
+  PERCENTAGE
+  SPECIFIC
+  HYBRID
+}
